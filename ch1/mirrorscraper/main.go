@@ -48,14 +48,17 @@ func findFastest(mirrors *[]string) fastest {
 			// log.Println("Started probing: ", mirror)
 			start := time.Now()
 			_, err := http.Get(mirror)
+			latency := time.Now().Sub(start)
 			if err != nil {
 				log.Println(err)
 				return
 			}
-			latency := time.Now().Sub(start)
-			// log.Printf("Got the best mirror: %s with latency: %s", mirror, latency)
+
+			// send results to channel canceling all other goroutines when functions returns
 			mirrorChan <- mirror
 			latencyChan <- latency
+
+			log.Printf("Got the best mirror: %s with latency: %s", mirror, latency)
 		}(mirror)
 	}
 
@@ -89,6 +92,5 @@ Content-Length: 72
 */
 
 /* TO-DO
-when called from http server goroutines are not cancelled after fastest has been found (is there a way to cancel them ?)
 there is no limit on number of goroutines (when multiple calls are done server will use a lot of outgoing connections)
 */
