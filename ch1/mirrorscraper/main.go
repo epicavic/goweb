@@ -15,26 +15,27 @@ type fastest struct {
 	Latency       time.Duration `json:"latency"`
 }
 
-func main() {
-	mirrors, err := readList("mirrors.list")
-	if err != nil {
+var mirrors []string
+
+func init() {
+	if err := readList("mirrors.list", &mirrors); err != nil {
 		log.Fatalf("readList: %s", err)
 	}
+}
 
-	// for _, mirror := range *mirrors {
-	// 	fmt.Println(mirror)
-	// }
-
-	// fmt.Println(findFastest(mirrors))
-
+func main() {
+	// fmt.Println(mirrors)
 	fmt.Println("Starting server")
-	http.HandleFunc("/", func(w http.ResponseWriter, r *http.Request) {
-		response := findFastest(mirrors)
-		respJSON, _ := json.Marshal(response)
-		w.Header().Set("Content-Type", "application/json")
-		w.Write(respJSON)
-	})
+	http.HandleFunc("/", findFastestHandler)
 	log.Fatal(http.ListenAndServe("localhost:8080", nil))
+}
+
+// findFastestHandler returns fastest mirror and latency
+func findFastestHandler(w http.ResponseWriter, r *http.Request) {
+	response := findFastest(&mirrors)
+	respJSON, _ := json.Marshal(response)
+	w.Header().Set("Content-Type", "application/json")
+	w.Write(respJSON)
 }
 
 // findFastest reads the list of mirrors and returns fastest
@@ -62,20 +63,19 @@ func findFastest(mirrors *[]string) fastest {
 }
 
 // readList reads the file and returns pointer to a list of strings and error
-func readList(path string) (*[]string, error) {
+func readList(path string, list *[]string) error {
 	file, err := os.Open(path)
 	if err != nil {
-		return nil, err
+		return err
 	}
 	defer file.Close()
 
-	var list []string
 	scanner := bufio.NewScanner(file)
 	for scanner.Scan() {
-		list = append(list, scanner.Text())
+		*list = append(*list, scanner.Text())
 	}
 
-	return &list, scanner.Err()
+	return scanner.Err()
 }
 
 /* USAGE:
@@ -89,7 +89,6 @@ Content-Length: 72
 */
 
 /* TO-DO
-how to init and share mirrors list ?
 when called from http server goroutines are not cancelled after fastest has been found (is there a way to cancel them ?)
 there is no limit on number of goroutines (when multiple calls are done server will use a lot of outgoing connections)
 */
