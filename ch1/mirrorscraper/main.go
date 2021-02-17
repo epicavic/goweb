@@ -10,27 +10,23 @@ import (
 	"time"
 )
 
+// fastest mirror responce struct
 type fastest struct {
 	FastestMirror string        `json:"fastest_mirror"`
 	Latency       time.Duration `json:"latency"`
 }
 
+// globally scoped mirrors slice var
 var mirrors []string
 
+// read a list of mirrors into a slice
 func init() {
 	if err := readList("mirrors.list", &mirrors); err != nil {
 		log.Fatalf("readList: %s", err)
 	}
 }
 
-func main() {
-	// fmt.Println(mirrors)
-	fmt.Println("Starting server")
-	http.HandleFunc("/", findFastestHandler)
-	log.Fatal(http.ListenAndServe("localhost:8080", nil))
-}
-
-// findFastestHandler returns fastest mirror and latency
+// findFastestHandler returns fastest mirror and latency struct
 func findFastestHandler(w http.ResponseWriter, r *http.Request) {
 	response := findFastest(&mirrors)
 	respJSON, _ := json.Marshal(response)
@@ -38,7 +34,7 @@ func findFastestHandler(w http.ResponseWriter, r *http.Request) {
 	w.Write(respJSON)
 }
 
-// findFastest reads the list of mirrors and returns fastest
+// findFastest reads the mirrors slice and returns fastest and latency
 func findFastest(mirrors *[]string) fastest {
 	mirrorChan := make(chan string)
 	latencyChan := make(chan time.Duration)
@@ -54,7 +50,7 @@ func findFastest(mirrors *[]string) fastest {
 				return
 			}
 
-			// send results to channel canceling all other goroutines when functions returns
+			// send results to channel canceling all other goroutines when function returns
 			mirrorChan <- mirror
 			latencyChan <- latency
 
@@ -65,7 +61,7 @@ func findFastest(mirrors *[]string) fastest {
 	return fastest{<-mirrorChan, <-latencyChan}
 }
 
-// readList reads the file and returns pointer to a list of strings and error
+// readList reads the file into a mirrors slice
 func readList(path string, list *[]string) error {
 	file, err := os.Open(path)
 	if err != nil {
@@ -79,6 +75,13 @@ func readList(path string, list *[]string) error {
 	}
 
 	return scanner.Err()
+}
+
+func main() {
+	// fmt.Println(mirrors)
+	fmt.Println("Starting server")
+	http.HandleFunc("/", findFastestHandler)
+	log.Fatal(http.ListenAndServe("localhost:8080", nil))
 }
 
 /* USAGE:
