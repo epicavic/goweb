@@ -6,7 +6,7 @@ import (
 )
 
 func main() {
-	// compiler would complain on undeclared namne if we won't run all go files
+	// compiler would complain on undeclared name if we won't run all go files
 	var m mux
 	log.Fatal(http.ListenAndServe("localhost:8080", m))
 }
