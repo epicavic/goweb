@@ -25,5 +25,5 @@ func random(w http.ResponseWriter, r *http.Request) {
 	if err != nil {
 		log.Fatalln(err)
 	}
-	fmt.Fprint(w, string(bs))
+	fmt.Fprint(w, fmt.Sprintf("%x", bs))
 }
