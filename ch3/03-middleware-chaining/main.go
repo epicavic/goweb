@@ -6,6 +6,8 @@ import (
 	"net/http"
 	"strconv"
 	"time"
+
+	"github.com/justinas/alice"
 )
 
 // city struct used for request unmarshaling (json body)
@@ -50,7 +52,7 @@ func handle(w http.ResponseWriter, r *http.Request) {
 		}
 		defer r.Body.Close()
 
-		log.Printf("Got %s city with area of %f sq miles!\n", c.Name, c.Area)
+		log.Printf("Got %s city with area of %f sq km!\n", c.Name, c.Area)
 		w.WriteHeader(http.StatusOK)
 		w.Write([]byte("201 - Created"))
 	} else {
@@ -60,7 +62,8 @@ func handle(w http.ResponseWriter, r *http.Request) {
 }
 
 func main() {
-	http.Handle("/", filterContentType(setServerTimeCookie(http.HandlerFunc(handle))))
+	http.Handle("/", alice.New(filterContentType, setServerTimeCookie).Then(http.HandlerFunc(handle)))
+	// http.Handle("/", filterContentType(setServerTimeCookie(http.HandlerFunc(handle))))
 	http.ListenAndServe("localhost:8080", nil)
 }
 
@@ -81,7 +84,7 @@ Content-Type: text/plain; charset=utf-8
 
 415 - Unsupported Media Type. Please send application/json
 
-$ curl -i -w'\n' localhost:8080/city -d '{"name": "Korosten", "area": 42.31}' -H "Content-Type: application/json"
+$ curl -i -w'\n' localhost:8080/ -d '{"name": "Korosten", "area": 42.31}' -H "Content-Type: application/json"
 HTTP/1.1 200 OK
 Set-Cookie: ServerTimeUTC=1613744922
 Date: Fri, 19 Feb 2021 14:28:42 GMT
