@@ -6,14 +6,14 @@ trap ctrl_c INT
 
 function ctrl_c() {
     echo "Trapped CTRL-C"
-    docker stop mongo
+    docker stop rabbitmq
 }
 
-# run mongo
-docker run --rm --name mongo -p 27017:27017 -v "$(pwd)/db:/data/db" -d mongo
+# run container
+docker run --rm --name rabbitmq -p 5672:5672 -d rabbitmq
 
 # run go main
 go run main.go
 
 # stop container
-docker stop mongo
+docker stop rabbitmq
