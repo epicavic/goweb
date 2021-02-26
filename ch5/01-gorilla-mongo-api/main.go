@@ -137,7 +137,6 @@ func main() {
 
 /*
 $ bash -x run.sh
-+ set -e
 + trap ctrl_c INT
 ++ pwd
 + docker run --rm --name mongo -p 27017:27017 -v /Users/Viktor_Buchkivskyi/opaq/goweb/ch5/01-gorilla-mongo-api/db:/data/db -d mongo
