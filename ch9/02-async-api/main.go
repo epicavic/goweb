@@ -23,6 +23,7 @@ import (
 	"github.com/streadway/amqp"
 )
 
+// rabbitmq connection details
 const (
 	scheme = "amqp"
 	user   = "guest"
@@ -45,31 +46,31 @@ func blockForever() {
 	<-c
 }
 
-// Job represents a job item
+// Job represents a job item. ExtraData is used as a
 type Job struct {
-	ID        uuid.UUID   `json:"uuid"`
-	Type      string      `json:"type"`
-	ExtraData interface{} `json:"extra_data"`
+	ID        uuid.UUID   `json:"uuid"`       // set a job ID
+	Type      string      `json:"type"`       // set a job type "A", "B", or "C"
+	ExtraData interface{} `json:"extra_data"` // set extra data. used as placeholder for for Log, Callback, and Mail structs
 }
 
 // Log is for worker-A (saves information from the message into a database)
 type Log struct {
-	ClientTime time.Time `json:"client_time"`
+	ClientTime time.Time `json:"client_time"` // timestamp provided by client (parsed from http request query params)
 }
 
 // CallBack is for worker-B (posts information to a callback that was received as part of a request)
 type CallBack struct {
-	CallBackURL string `json:"callback_url"`
+	CallBackURL string `json:"callback_url"` // callback URL to post data to
 }
 
 // Mail is for worker-C (sends an email)
 type Mail struct {
-	EmailAddress string `json:"email_address"`
+	EmailAddress string `json:"email_address"` // email address to send a message to
 }
 
-// Workers does the job. It holds a queue connection
+// Workers does the job
 type Workers struct {
-	conn *amqp.Connection
+	conn *amqp.Connection // holds a queue connection. this way workers can read messages from the queue
 }
 
 // run method reads from message queue and fires up worker(A|B|C) when new message arrives
@@ -100,6 +101,7 @@ func (w *Workers) run() {
 	)
 	handleError("Messages fetch failed", err)
 
+	// fire up goroutine which reads messages from the queue and launches the workers
 	go func() {
 		for message := range messages {
 
@@ -120,25 +122,31 @@ func (w *Workers) run() {
 	}()
 	log.Printf("All workers are up and running")
 
+	// keep listening to the queue forever
 	blockForever()
 }
 
-// worker-A
+// worker-A mock
 func (w *Workers) dbWork(job Job) {
-	result := job.ExtraData.(map[string]interface{})
+	// fmt.Println(job.ExtraData) // map[client_time:2021-02-26T12:55:55+02:00]
+	// x.(T), if the asserted type T is a concrete type, then the type assertion checks whether x’s dynamic type is identical to T
+	// if this check succeeds, the result of the type assertion is x’s dynamic value, whose type is of course T
+	// In other words, a type assertion to a concrete type extracts the concrete value from its operand
+	// If the check fails, then the operation panics
+	result := job.ExtraData.(map[string]interface{}) // interface type assertion
 	log.Printf("Worker %s: extracting data..., JOB: %s", job.Type, result)
 	time.Sleep(2 * time.Second)
 	log.Printf("Worker %s: saving data to database..., JOB: %s", job.Type, job.ID)
 }
 
-// worker-B
+// worker-B mock
 func (w *Workers) callbackWork(job Job) {
 	log.Printf("Worker %s: performing some long running process..., JOB: %s", job.Type, job.ID)
 	time.Sleep(2 * time.Second)
 	log.Printf("Worker %s: posting the data back to the given callback..., JOB: %s", job.Type, job.ID)
 }
 
-// worker-C
+// worker-C mock
 func (w *Workers) emailWork(job Job) {
 	log.Printf("Worker %s: sending the email..., JOB: %s", job.Type, job.ID)
 	time.Sleep(2 * time.Second)
@@ -147,11 +155,12 @@ func (w *Workers) emailWork(job Job) {
 
 // JobServer holds api handler functions
 type JobServer struct {
-	Queue   amqp.Queue
-	Channel *amqp.Channel
-	Conn    *amqp.Connection
+	Queue   amqp.Queue       // holds a queue itself
+	Channel *amqp.Channel    // holds a queue channel
+	Conn    *amqp.Connection // holds a queue connection. this way handlers can write messages from the queue
 }
 
+// publish job json to the queue
 func (s *JobServer) publish(jsonBody []byte) error {
 	message := amqp.Publishing{
 		ContentType: "application/json",
@@ -169,6 +178,10 @@ func (s *JobServer) publish(jsonBody []byte) error {
 	return err
 }
 
+// Takes an incoming request and tries to create an instant Job ID and populate with extra_data
+// Once it successfully places the job in the queue, it returns the Job ID to the caller
+// The workers who are already started and listening to the job queue pick those tasks and execute them concurrently
+// Work Type A handler
 func (s *JobServer) asyncDBHandler(w http.ResponseWriter, r *http.Request) {
 	jobID, err := uuid.NewRandom()
 	handleError("Error while generating new UUID", err)
@@ -191,6 +204,7 @@ func (s *JobServer) asyncDBHandler(w http.ResponseWriter, r *http.Request) {
 	w.Write(jsonBody)
 }
 
+// Work Type B handler
 func (s *JobServer) asyncCallbackHandler(w http.ResponseWriter, r *http.Request) {
 	jobID, err := uuid.NewRandom()
 	handleError("Error while generating new UUID", err)
@@ -208,6 +222,7 @@ func (s *JobServer) asyncCallbackHandler(w http.ResponseWriter, r *http.Request)
 	w.Write(jsonBody)
 }
 
+// Work Type C handler
 func (s *JobServer) asyncMailHandler(w http.ResponseWriter, r *http.Request) {
 	jobID, err := uuid.NewRandom()
 	handleError("Error while generating new UUID", err)
